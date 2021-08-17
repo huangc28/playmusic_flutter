@@ -6,7 +6,7 @@ import 'package:meta/meta.dart';
 import 'package:equatable/equatable.dart';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:playmusic_flutter/constants.dart';
+import 'package:playmusic_flutter/constants/loading_status.dart';
 
 part 'music_stream_event.dart';
 part 'music_stream_state.dart';

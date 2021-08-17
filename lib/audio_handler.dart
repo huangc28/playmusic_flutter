@@ -9,8 +9,9 @@ Future<AudioHandler> initAudioService() {
     builder: () => AudioPlayerHandler(),
     config: AudioServiceConfig(
       androidNotificationChannelId: 'com.playmusic.app.channel.audio',
-      androidNotificationChannelName: 'Audio playback',
+      androidNotificationChannelName: 'YT audio background play',
       androidNotificationOngoing: true,
+      androidStopForegroundOnPause: true,
     ),
   );
 }
@@ -23,20 +24,22 @@ class AudioPlayerHandler extends BaseAudioHandler {
 
   AudioPlayerHandler() {
     _loadEmptyPlaylist();
+    _notifyAudioHandlerAboutPlaybackEvents();
+    _listenForDurationChanges();
 
-    playbackState.add(playbackState.value.copyWith(
-      controls: [MediaControl.play],
-      processingState: AudioProcessingState.loading,
-    ));
+    // playbackState.add(playbackState.value.copyWith(
+    //   controls: [MediaControl.play],
+    //   processingState: AudioProcessingState.loading,
+    // ));
 
     // @TODO We need to find a way to provide byte data to audio player.
-    _player
-        .setUrl("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3")
-        .then((duration) {
-      playbackState.value.copyWith(
-        processingState: AudioProcessingState.ready,
-      );
-    });
+    // _player
+    //     .setUrl("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3")
+    //     .then((duration) {
+    //   playbackState.value.copyWith(
+    //     processingState: AudioProcessingState.ready,
+    //   );
+    // });
   }
 
   _loadEmptyPlaylist() async {
@@ -53,8 +56,6 @@ class AudioPlayerHandler extends BaseAudioHandler {
     final audioSource = mediaItems.map(_createUriAudioSource);
     _playlist.addAll(audioSource.toList());
 
-    print('add queue items ${mediaItems[0]}');
-
     // notify system
     final newQueue = queue.value..addAll(mediaItems);
     queue.add(newQueue);
@@ -67,6 +68,12 @@ class AudioPlayerHandler extends BaseAudioHandler {
     );
   }
 
+  LockCachingAudioSource _createLockCachingAudioSource(MediaItem mediaItem) {
+    return LockCachingAudioSource(
+      Uri.parse(mediaItem.extras!['url']),
+    );
+  }
+
   BufferAudioSource _createBufferAudioSource(MediaItem meidaItem) {
     final _byteBuilder = BytesBuilder();
 
@@ -74,24 +81,13 @@ class AudioPlayerHandler extends BaseAudioHandler {
   }
 
   @override
-  Future<void> play() async {
-    playbackState.add(playbackState.value.copyWith(
-      playing: true,
-      controls: [MediaControl.pause],
-    ));
-
-    await _player.play();
-  }
+  Future<void> play() => _player.play();
 
   @override
-  Future<void> pause() async {
-    playbackState.add(playbackState.value.copyWith(
-      playing: false,
-      controls: [MediaControl.play],
-    ));
+  Future<void> pause() => _player.pause();
 
-    await _player.pause();
-  }
+  @override
+  Future<void> seek(Duration position) => _player.seek(position);
 
   @override
   Future customAction(String name, [Map<String, dynamic>? extras]) async {
@@ -99,5 +95,48 @@ class AudioPlayerHandler extends BaseAudioHandler {
       await _player.dispose();
       super.stop();
     }
+  }
+
+  void _notifyAudioHandlerAboutPlaybackEvents() {
+    _player.playbackEventStream.listen((PlaybackEvent event) {
+      final playing = _player.playing;
+      playbackState.add(playbackState.value.copyWith(
+        controls: [
+          MediaControl.skipToPrevious,
+          if (playing) MediaControl.pause else MediaControl.play,
+          MediaControl.stop,
+          MediaControl.skipToNext,
+        ],
+        systemActions: const {
+          MediaAction.seek,
+        },
+        androidCompactActionIndices: const [0, 1, 3],
+        processingState: const {
+          ProcessingState.idle: AudioProcessingState.idle,
+          ProcessingState.loading: AudioProcessingState.loading,
+          ProcessingState.buffering: AudioProcessingState.buffering,
+          ProcessingState.ready: AudioProcessingState.ready,
+          ProcessingState.completed: AudioProcessingState.completed,
+        }[_player.processingState]!,
+        playing: playing,
+        updatePosition: _player.position,
+        bufferedPosition: _player.bufferedPosition,
+        speed: _player.speed,
+        queueIndex: event.currentIndex,
+      ));
+    });
+  }
+
+  void _listenForDurationChanges() {
+    _player.durationStream.listen((duration) {
+      final index = _player.currentIndex;
+      final newQueue = queue.value;
+      if (index == null || newQueue.isEmpty) return;
+      final oldMediaItem = newQueue[index];
+      final newMediaItem = oldMediaItem.copyWith(duration: duration);
+      newQueue[index] = newMediaItem;
+      queue.add(newQueue);
+      mediaItem.add(newMediaItem);
+    });
   }
 }

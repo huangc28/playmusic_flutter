@@ -5,7 +5,7 @@ abstract class MusicStreamState extends Equatable {
   MusicStreamState({
     this.channel,
     this.err,
-    this.loading = LoadingStates.EMPTY,
+    this.loading = LoadingStatus.initial,
   });
 
   /// Socket connection instance to the music streaming websocket server.
@@ -13,7 +13,7 @@ abstract class MusicStreamState extends Equatable {
 
   /// Error when socket connection failed.
   final Error? err;
-  final LoadingStates loading;
+  final LoadingStatus loading;
 
   @override
   List<Object?> get props => [
@@ -28,14 +28,14 @@ class MusicStreamInitial extends MusicStreamState {
       : super(
           channel: null,
           err: null,
-          loading: LoadingStates.EMPTY,
+          loading: LoadingStatus.initial,
         );
 }
 
 class ConnectingSocket extends MusicStreamState {
   ConnectingSocket()
       : super(
-          loading: LoadingStates.LOADING,
+          loading: LoadingStatus.loading,
         );
 }
 
@@ -44,7 +44,7 @@ class StreamSocketConnected extends MusicStreamState {
     required WebSocketChannel channel,
   }) : super(
           channel: channel,
-          loading: LoadingStates.DONE,
+          loading: LoadingStatus.done,
         );
 }
 
@@ -57,6 +57,6 @@ class StreamSocketConnectFailed extends MusicStreamState {
     required Error err,
   }) : super(
           err: err,
-          loading: LoadingStates.ERROR,
+          loading: LoadingStatus.error,
         );
 }

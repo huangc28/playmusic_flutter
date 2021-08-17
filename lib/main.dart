@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import './bloc/music_stream_bloc.dart';
+import './bloc/search_yt_url_bloc.dart';
+
 import './landing.dart';
 import './service_locator.dart';
 
@@ -20,6 +22,9 @@ class PlayMusic extends StatelessWidget {
         BlocProvider(
           create: (_) => MusicStreamBloc(),
         ),
+        BlocProvider(
+          create: (_) => SearchYtUrlBloc(),
+        ),
       ],
       child: MaterialApp(
         title: 'playmusic',
@@ -27,13 +32,10 @@ class PlayMusic extends StatelessWidget {
           primarySwatch: Colors.blue,
         ),
         initialRoute: '/',
-        onGenerateRoute: (settings) {
-          return MaterialPageRoute(
-              settings: settings,
-              builder: (context) {
-                return Landing();
-              });
-        },
+        onGenerateRoute: (settings) => MaterialPageRoute(
+          settings: settings,
+          builder: (context) => Landing(),
+        ),
       ),
     );
   }
